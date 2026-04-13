@@ -1,5 +1,7 @@
 package com.taskmanagment.app.serviceImpl;
 
+import java.time.LocalDateTime;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -10,12 +12,14 @@ import com.taskmanagment.app.Dto.CommentResponseDto;
 import com.taskmanagment.app.Exceptions.AccessDeniedException;
 import com.taskmanagment.app.Exceptions.ResourceNotFoundException;
 import com.taskmanagment.app.Models.Comments;
+import com.taskmanagment.app.Models.Notification;
 import com.taskmanagment.app.Models.TaskModel;
 import com.taskmanagment.app.Models.UserModel;
 import com.taskmanagment.app.Repository.CommentRepository;
 import com.taskmanagment.app.Repository.TaskRepository;
 import com.taskmanagment.app.Repository.UserRepository;
 import com.taskmanagment.app.service.CommentService;
+import com.taskmanagment.app.service.NotificationService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +33,7 @@ public class CommentServiceImpl implements CommentService {
     private final CommentRepository commentRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
-    // private final NotificationService notificationService;
+    private final NotificationService notificationService;
  
     @Override
     @Transactional
@@ -41,27 +45,28 @@ public class CommentServiceImpl implements CommentService {
             .content(request.getContent())
             .task(task)
             .author(author)
+            .createdAt(LocalDateTime.now())
             .build();
  
         Comments saved = commentRepository.save(comment);
  
         // Notify task assignee (if different from commenter)
-        // if (task.getAssignee() != null && !task.getAssignee().getId().equals(authorId)) {
-        //     notificationService.createAndSend(
-        //         task.getAssignee().getId(),
-        //         Notification.Type.COMMENT_ADDED,
-        //         author.getUsername() + " commented on task: " + task.getTitle(),
-        //         task.getId(), "TASK");
-        // }
+        if (task.getAssignee() != null && !task.getAssignee().getId().equals(authorId)) {
+            notificationService.createAndSend(
+                task.getAssignee().getId(),
+                Notification.Type.COMMENT_ADDED,
+                author.getUsername() + " commented on task: " + task.getTitle(),
+                task.getId(), "TASK");
+        }
         // Notify task creator (if different from commenter and assignee)
-        // if (!task.getCreator().getId().equals(authorId)
-        //         && (task.getAssignee() == null || !task.getCreator().getId().equals(task.getAssignee().getId()))) {
-        //     notificationService.createAndSend(
-        //         task.getCreator().getId(),
-        //         Notification.Type.COMMENT_ADDED,
-        //         author.getUsername() + " commented on task: " + task.getTitle(),
-        //         task.getId(), "TASK");
-        // }
+        if (!task.getCreator().getId().equals(authorId)
+                && (task.getAssignee() == null || !task.getCreator().getId().equals(task.getAssignee().getId()))) {
+            notificationService.createAndSend(
+                task.getCreator().getId(),
+                Notification.Type.COMMENT_ADDED,
+                author.getUsername() + " commented on task: " + task.getTitle(),
+                task.getId(), "TASK");
+        }
  
         return CommentResponseDto.from(saved);
     }

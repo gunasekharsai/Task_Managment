@@ -48,6 +48,7 @@ public class TaskServiceImpl implements TaskService{
         .priority(request.getPriority() != null ? request.getPriority() : TaskModel.Priority.MEDIUM)
         .dueDate(request.getDueDate())
         .status(Status.OPEN)
+        .createdAt(LocalDateTime.now())
         .build();
 
          // Optional: assign to a team
@@ -60,9 +61,11 @@ public class TaskServiceImpl implements TaskService{
 
          // Optional: assign to another user
         if (request.getAssigneeId() != null) {
-            UserModel assignee = findUser(request.getAssigneeId());
-            task.setAssignee(assignee);
-        }
+    UserModel assignee = findUser(request.getAssigneeId());
+    task.setAssignee(assignee);
+} else {
+    task.setAssignee(user);  // <-- this is the fix
+}
 
 
 
@@ -75,6 +78,7 @@ public class TaskServiceImpl implements TaskService{
     // read
 
     @Override
+    @Transactional
     public TaskResponseDto getTask(String taskId, String requesterId) {
         TaskModel task = findTask(taskId);
         assertCanAccessTask(task, requesterId);

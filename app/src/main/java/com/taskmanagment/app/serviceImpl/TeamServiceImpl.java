@@ -13,12 +13,14 @@ import com.taskmanagment.app.Dto.TeamResponseDto;
 import com.taskmanagment.app.Exceptions.AccessDeniedException;
 import com.taskmanagment.app.Exceptions.BadRequestException;
 import com.taskmanagment.app.Exceptions.ResourceNotFoundException;
+import com.taskmanagment.app.Models.Notification;
 import com.taskmanagment.app.Models.TeamInvite;
 import com.taskmanagment.app.Models.TeamModel;
 import com.taskmanagment.app.Models.UserModel;
 import com.taskmanagment.app.Repository.TeamInviteRepository;
 import com.taskmanagment.app.Repository.TeamRepository;
 import com.taskmanagment.app.Repository.UserRepository;
+import com.taskmanagment.app.service.NotificationService;
 import com.taskmanagment.app.service.TeamService;
 
 import lombok.RequiredArgsConstructor;
@@ -33,7 +35,7 @@ public class TeamServiceImpl implements TeamService {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final TeamInviteRepository inviteRepository;
-    // private final NotificationService notificationService;
+    private final NotificationService notificationService;
  
     @Override
     @Transactional
@@ -44,6 +46,7 @@ public class TeamServiceImpl implements TeamService {
             .name(request.getName())
             .description(request.getDescription())
             .owner(owner)
+            .createdAt(LocalDateTime.now())
             .build();
         team.getMembers().add(owner); // owner is also a member
  
@@ -116,18 +119,19 @@ public class TeamServiceImpl implements TeamService {
             .invitedBy(inviter)
             .status(TeamInvite.Status.PENDING)
             .expiresAt(LocalDateTime.now().plusDays(7))
+            .createdAt(LocalDateTime.now())
             .build();
  
         inviteRepository.save(invite);
         log.info("Invite sent to [{}] for team [{}]", inviteeEmail, teamId);
  
         // Notify if user already registered
-        // userRepository.findByEmail(inviteeEmail).ifPresent(user ->
-        //     notificationService.createAndSend(
-        //         user.getId(),
-        //         Notification.Type.TEAM_INVITE,
-        //         "You have been invited to join team: " + team.getName(),
-        //         teamId, "TEAM"));
+        userRepository.findByEmail(inviteeEmail).ifPresent(user ->
+            notificationService.createAndSend(
+                user.getId(),
+                Notification.Type.TEAM_INVITE,
+                "You have been invited to join team: " + team.getName(),
+                token, "TEAM"));
     }
  
     @Override
@@ -159,11 +163,11 @@ public class TeamServiceImpl implements TeamService {
  
         log.info("User [{}] joined team [{}]", userId, team.getId());
  
-        // notificationService.createAndSend(
-        //     team.getOwner().getId(),
-        //     Notification.Type.TEAM_JOINED,
-        //     user.getUsername() + " has joined your team: " + team.getName(),
-        //     team.getId(), "TEAM");
+        notificationService.createAndSend(
+            team.getOwner().getId(),
+            Notification.Type.TEAM_JOINED,
+            user.getUsername() + " has joined your team: " + team.getName(),
+            team.getId(), "TEAM");
  
         return TeamResponseDto.from(team);
     }

@@ -1,5 +1,6 @@
 package com.taskmanagment.app.serviceImpl;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -47,6 +48,7 @@ public class AttachmentServiceImpl implements AttachmentService {
             .filePath(relativePath)
             .task(task)
             .uploadedBy(uploader)
+            .uploadedAt(LocalDateTime.now())
             .build();
  
         return AttachmentResponseDto.from(attachmentRepository.save(attachment));
