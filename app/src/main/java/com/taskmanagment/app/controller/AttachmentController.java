@@ -1,6 +1,8 @@
 package com.taskmanagment.app.controller;
 
 
+import java.net.URLEncoder;
+
 import com.taskmanagment.app.Dto.AttachmentResponseDto;
 import com.taskmanagment.app.Dto.Responses;
 import com.taskmanagment.app.Models.Attachment;
@@ -15,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import com.taskmanagment.app.Repository.AttachmentRepository;
@@ -56,22 +59,37 @@ public class AttachmentController {
 
     // ── Download ──────────────────────────────────────────────────────────────
 
-    @GetMapping("/attachments/download/{attachmentId}")
-    // @Operation(summary = "Download an attachment file")
+   @GetMapping("/attachments/download/{attachmentId}")
+//     @Operation(summary = "Download an attachment file")
     public ResponseEntity<Resource> download(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable String attachmentId) {
 
         Resource resource = attachmentService.downloadAttachment(attachmentId, principal.getId());
 
-        String filename = attachmentRepository.findById(attachmentId)
-                .map(Attachment::getOriginalFileName)
-                .orElse("download");
+        Attachment attachment = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new RuntimeException("Attachment not found"));
+
+        // Detect correct Content-Type from stored fileType
+        MediaType mediaType;
+        try {
+            mediaType = MediaType.parseMediaType(attachment.getFileType());
+        } catch (Exception e) {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        // URL-encode filename to handle spaces and special characters
+        String encodedFilename = URLEncoder.encode(
+                attachment.getOriginalFileName(), StandardCharsets.UTF_8)
+                .replace("+", "%20");
 
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + filename + "\"")
+                        "attachment; filename=\"" + attachment.getOriginalFileName() + "\"; "
+                        + "filename*=UTF-8''" + encodedFilename)
+                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        HttpHeaders.CONTENT_DISPOSITION)
                 .body(resource);
     }
 
